@@ -48,7 +48,10 @@ export interface TeamStats {
   remainingGames: number;
 }
 
-export type ModelKey = "pace" | "montecarlo" | "elo";
+export type ModelKey = "pace" | "montecarlo" | "elo" | "record";
+
+/** Models whose per-match outcome probabilities are exposed for the team explorer. */
+export type SimModelKey = "montecarlo" | "elo" | "record";
 
 export interface TeamModelResult {
   teamId: string;
@@ -57,6 +60,17 @@ export interface TeamModelResult {
   projectedPointsLow: number;
   projectedPointsHigh: number;
   rating?: number;
+}
+
+export interface MatchOutcomeProbability {
+  pHome: number;
+  pDraw: number;
+  pAway: number;
+}
+
+export interface MatchRestFlags {
+  homeShort: boolean;
+  awayShort: boolean;
 }
 
 export interface DashboardPayload {
@@ -68,4 +82,10 @@ export interface DashboardPayload {
   models: Record<ModelKey, TeamModelResult[]>;
   leagueDrawRate: number;
   simulations: number;
+  /** Every not-yet-final match left on the schedule, league-wide. */
+  remainingMatches: Match[];
+  /** Per-match home/draw/away probabilities, keyed by match id, for each simulation-based model. */
+  matchProbabilities: Record<SimModelKey, Record<string, MatchOutcomeProbability>>;
+  /** Which side (if either) is playing on short rest, keyed by match id, for every remaining match. */
+  restFlags: Record<string, MatchRestFlags>;
 }

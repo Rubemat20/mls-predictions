@@ -10,6 +10,8 @@ interface Props {
   model: ModelKey;
   playoffSpots: number;
   directSpots: number;
+  selectedTeamId?: string | null;
+  onSelectTeam?: (teamId: string) => void;
 }
 
 export default function ConferenceTable({
@@ -19,6 +21,8 @@ export default function ConferenceTable({
   model,
   playoffSpots,
   directSpots,
+  selectedTeamId,
+  onSelectTeam,
 }: Props) {
   const sorted = [...teams].sort((a, b) => a.currentRank - b.currentRank);
   const maxProjected = Math.max(
@@ -37,7 +41,12 @@ export default function ConferenceTable({
       >
         {conference === "East" ? "Eastern Conference" : "Western Conference"}
       </div>
-      <div style={{ overflowX: "auto" }}>
+      <div
+        style={{ overflowX: "auto" }}
+        tabIndex={0}
+        role="region"
+        aria-label={`${conference === "East" ? "Eastern" : "Western"} Conference standings table, scrollable horizontally`}
+      >
         <table className="stats-table">
           <thead>
             <tr>
@@ -72,8 +81,19 @@ export default function ConferenceTable({
               const meanLeft = (mean / maxProjected) * 100;
               const prob = res?.playoffProbability ?? 0;
 
+              const isSelected = selectedTeamId === t.team.id;
               return (
-                <tr key={t.team.id} className={rowClass} style={{ background: bg }}>
+                <tr
+                  key={t.team.id}
+                  className={[rowClass, onSelectTeam ? "team-row-clickable" : ""]
+                    .filter(Boolean)
+                    .join(" ")}
+                  style={{
+                    background: isSelected ? "var(--gridline)" : bg,
+                  }}
+                  onClick={onSelectTeam ? () => onSelectTeam(t.team.id) : undefined}
+                  title={onSelectTeam ? `See what ${t.team.name} needs to make the playoffs` : undefined}
+                >
                   <td>{idx + 1}</td>
                   <td>
                     <div className="team-cell">
@@ -81,7 +101,9 @@ export default function ConferenceTable({
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={t.team.logo} alt="" className="team-logo" />
                       )}
-                      <span>{t.team.name}</span>
+                      <span style={{ textDecoration: onSelectTeam ? "underline" : undefined, textDecorationColor: "var(--border-hairline)", textUnderlineOffset: 3 }}>
+                        {t.team.name}
+                      </span>
                     </div>
                   </td>
                   <td>{t.gamesPlayed}</td>

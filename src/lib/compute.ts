@@ -1,13 +1,20 @@
 import { fetchFullSchedule, fetchStandings } from "./espn";
 import { computeEloRatings, HOME_FIELD_ADVANTAGE } from "./elo";
 import { computeStrengthRatings } from "./strength";
-import { buildSimMatches, runMonteCarlo, type SimTeamMeta } from "./simulate";
+import {
+  matchProbsFromRatings,
+  matchProbsFromRecord,
+  runSimulation,
+  type SimTeamMeta,
+} from "./simulate";
+import { calibrateRestSplits, computeRestFlags, type SplitRates } from "./recordModel";
 import { projectPointsPace, type PaceTeamInput } from "./pace";
 import type {
   Conference,
   DashboardPayload,
   Match,
   ModelKey,
+  SimModelKey,
   TeamModelResult,
   TeamRecordSplit,
   TeamStats,
@@ -123,6 +130,8 @@ export async function buildDashboardPayload(): Promise<DashboardPayload> {
       return sum + (hs.played > 0 ? hs.wins / hs.played : 0);
     }, 0) / teamIds.length;
 
+  const leagueHomeSplit = averageSplit(teamIds.map((id) => home.get(id)!));
+
   const eloRatings = computeEloRatings(teamIds, completed);
   const strengthRatings = computeStrengthRatings(
     teamIds.map((id) => {
@@ -203,29 +212,45 @@ export async function buildDashboardPayload(): Promise<DashboardPayload> {
       (t.home.played + HOME_ADVANTAGE_PRIOR_GAMES);
     return BASE_HOME_BOOST + (shrunk - leagueAvgHomeWinPct) * 300;
   };
-  const strengthMatches = buildSimMatches(
+  const strengthMatchProbs = matchProbsFromRatings(
     remaining,
+    leagueDrawRate,
     (id) => strengthRatings[id],
     (homeId) => strengthHomeAdvantage(homeId)
   );
-  const mcResults = runMonteCarlo(
+  const mcResults = runSimulation(
     simMeta,
-    strengthMatches,
-    leagueDrawRate,
+    strengthMatchProbs,
     PLAYOFF_SPOTS_PER_CONFERENCE,
     SIMULATIONS
   );
 
   // --- Model 3: Elo rating-based simulation ---
-  const eloMatches = buildSimMatches(
+  const eloMatchProbs = matchProbsFromRatings(
     remaining,
+    leagueDrawRate,
     (id) => eloRatings[id],
     () => HOME_FIELD_ADVANTAGE
   );
-  const eloResults = runMonteCarlo(
+  const eloResults = runSimulation(
     simMeta,
-    eloMatches,
-    leagueDrawRate,
+    eloMatchProbs,
+    PLAYOFF_SPOTS_PER_CONFERENCE,
+    SIMULATIONS
+  );
+
+  // --- Model 4: league-wide home/away record, adjusted for short rest ---
+  // No per-team splits (one season is too small a sample per team) — every
+  // match uses the league-wide home/draw/away rate for its rest situation
+  // (whether the home team, away team, both, or neither is playing again on
+  // short rest), so teams only differ here by their current points and the
+  // shape of their remaining schedule.
+  const restFlags = computeRestFlags(allMatches);
+  const restBuckets = calibrateRestSplits(completed, restFlags, leagueHomeSplit);
+  const recordMatchProbs = matchProbsFromRecord(remaining, restBuckets, restFlags);
+  const recordResults = runSimulation(
+    simMeta,
+    recordMatchProbs,
     PLAYOFF_SPOTS_PER_CONFERENCE,
     SIMULATIONS
   );
@@ -254,7 +279,30 @@ export async function buildDashboardPayload(): Promise<DashboardPayload> {
       projectedPointsHigh: eloResults[id].p90,
       rating: eloRatings[id],
     })),
+    record: teamIds.map((id) => ({
+      teamId: id,
+      playoffProbability: recordResults[id].playoffProbability,
+      projectedPoints: recordResults[id].projectedPoints,
+      projectedPointsLow: recordResults[id].p10,
+      projectedPointsHigh: recordResults[id].p90,
+    })),
   };
+
+  const matchProbabilities: Record<SimModelKey, Record<string, { pHome: number; pDraw: number; pAway: number }>> = {
+    montecarlo: Object.fromEntries(
+      strengthMatchProbs.map((m) => [m.id, { pHome: m.pHome, pDraw: m.pDraw, pAway: m.pAway }])
+    ),
+    elo: Object.fromEntries(
+      eloMatchProbs.map((m) => [m.id, { pHome: m.pHome, pDraw: m.pDraw, pAway: m.pAway }])
+    ),
+    record: Object.fromEntries(
+      recordMatchProbs.map((m) => [m.id, { pHome: m.pHome, pDraw: m.pDraw, pAway: m.pAway }])
+    ),
+  };
+
+  const restFlagsForRemaining = Object.fromEntries(
+    remaining.map((m) => [m.id, restFlags.get(m.id) ?? { homeShort: false, awayShort: false }])
+  );
 
   return {
     generatedAt: new Date().toISOString(),
@@ -265,6 +313,28 @@ export async function buildDashboardPayload(): Promise<DashboardPayload> {
     models,
     leagueDrawRate,
     simulations: SIMULATIONS,
+    remainingMatches: remaining,
+    matchProbabilities,
+    restFlags: restFlagsForRemaining,
+  };
+}
+
+function averageSplit(splits: TeamRecordSplit[]): SplitRates {
+  const totals = splits.reduce(
+    (acc, s) => {
+      acc.played += s.played;
+      acc.wins += s.wins;
+      acc.draws += s.draws;
+      acc.losses += s.losses;
+      return acc;
+    },
+    { played: 0, wins: 0, draws: 0, losses: 0 }
+  );
+  if (totals.played === 0) return { win: 0.45, draw: 0.24, loss: 0.31 };
+  return {
+    win: totals.wins / totals.played,
+    draw: totals.draws / totals.played,
+    loss: totals.losses / totals.played,
   };
 }
 

@@ -1,5 +1,6 @@
 import type { Match } from "./types";
 import { matchupProbabilities } from "./probability";
+import { restSplitFor, type RestFlags, type SplitRates } from "./recordModel";
 
 export interface SimTeamMeta {
   id: string;
@@ -8,10 +9,14 @@ export interface SimTeamMeta {
   currentGoalDiff: number;
 }
 
-export interface SimMatchInput {
+/** A remaining match reduced to the three outcome probabilities used by the simulator. */
+export interface SimMatchProb {
+  id: string;
   homeId: string;
   awayId: string;
-  ratingDiff: number; // home effective rating - away rating, home advantage already applied
+  pHome: number;
+  pDraw: number;
+  pAway: number;
 }
 
 export interface SimResult {
@@ -21,25 +26,51 @@ export interface SimResult {
   p90: number;
 }
 
-export function buildSimMatches(
+/** Outcome of a single match: home win, draw, or away win. */
+export type MatchOutcome = "H" | "D" | "A";
+
+export function matchProbsFromRatings(
   remaining: Match[],
+  leagueDrawRate: number,
   ratingOf: (teamId: string) => number,
   homeAdvantage: (homeId: string, awayId: string) => number
-): SimMatchInput[] {
-  return remaining.map((m) => ({
-    homeId: m.homeId,
-    awayId: m.awayId,
-    ratingDiff:
-      ratingOf(m.homeId) + homeAdvantage(m.homeId, m.awayId) - ratingOf(m.awayId),
-  }));
+): SimMatchProb[] {
+  return remaining.map((m) => {
+    const ratingDiff =
+      ratingOf(m.homeId) + homeAdvantage(m.homeId, m.awayId) - ratingOf(m.awayId);
+    const { pHome, pDraw, pAway } = matchupProbabilities(ratingDiff, leagueDrawRate);
+    return { id: m.id, homeId: m.homeId, awayId: m.awayId, pHome, pDraw, pAway };
+  });
 }
 
-export function runMonteCarlo(
+export function matchProbsFromRecord(
+  remaining: Match[],
+  restBuckets: Record<string, SplitRates>,
+  restFlags: Map<string, RestFlags>
+): SimMatchProb[] {
+  return remaining.map((m) => {
+    const flags = restFlags.get(m.id) ?? { homeShort: false, awayShort: false };
+    const { pHome, pDraw, pAway } = restSplitFor(restBuckets, flags);
+    return { id: m.id, homeId: m.homeId, awayId: m.awayId, pHome, pDraw, pAway };
+  });
+}
+
+/**
+ * Monte Carlo core: replays `matchProbs` `simulations` times, awarding
+ * points per trial and tallying how often each team lands in a top-
+ * `playoffSpots` slot within its conference. Any match id present in
+ * `fixedOutcomes` is forced to that result on every trial instead of being
+ * drawn at random — this is what lets the team explorer answer "if the
+ * Sounders win this game and draw that one, what's their playoff odds?"
+ * while every other match (including this team's other remaining games)
+ * still plays out probabilistically.
+ */
+export function runSimulation(
   teams: SimTeamMeta[],
-  matches: SimMatchInput[],
-  leagueDrawRate: number,
+  matchProbs: SimMatchProb[],
   playoffSpots: number,
-  simulations = 8000
+  simulations = 8000,
+  fixedOutcomes?: Map<string, MatchOutcome>
 ): Record<string, SimResult> {
   const ids = teams.map((t) => t.id);
   const indexOf = new Map(ids.map((id, i) => [id, i]));
@@ -54,16 +85,17 @@ export function runMonteCarlo(
     conference[i] = t.conference;
   });
 
-  const matchHome = new Int32Array(matches.length);
-  const matchAway = new Int32Array(matches.length);
-  const pHomeArr = new Float64Array(matches.length);
-  const pDrawArr = new Float64Array(matches.length);
-  matches.forEach((m, i) => {
+  const matchHome = new Int32Array(matchProbs.length);
+  const matchAway = new Int32Array(matchProbs.length);
+  const pHomeArr = new Float64Array(matchProbs.length);
+  const pDrawCumArr = new Float64Array(matchProbs.length);
+  const fixedArr: (MatchOutcome | null)[] = new Array(matchProbs.length).fill(null);
+  matchProbs.forEach((m, i) => {
     matchHome[i] = indexOf.get(m.homeId)!;
     matchAway[i] = indexOf.get(m.awayId)!;
-    const { pHome, pDraw } = matchupProbabilities(m.ratingDiff, leagueDrawRate);
-    pHomeArr[i] = pHome;
-    pDrawArr[i] = pHome + pDraw;
+    pHomeArr[i] = m.pHome;
+    pDrawCumArr[i] = m.pHome + m.pDraw;
+    fixedArr[i] = fixedOutcomes?.get(m.id) ?? null;
   });
 
   const pointsDist: number[][] = Array.from({ length: n }, () => []);
@@ -81,13 +113,20 @@ export function runMonteCarlo(
   for (let s = 0; s < simulations; s++) {
     trialPoints.set(basePoints);
 
-    for (let m = 0; m < matches.length; m++) {
-      const r = Math.random();
+    for (let m = 0; m < matchProbs.length; m++) {
       const h = matchHome[m];
       const a = matchAway[m];
-      if (r < pHomeArr[m]) {
+      const forced = fixedArr[m];
+      const outcome: MatchOutcome =
+        forced ?? (() => {
+          const r = Math.random();
+          if (r < pHomeArr[m]) return "H";
+          if (r < pDrawCumArr[m]) return "D";
+          return "A";
+        })();
+      if (outcome === "H") {
         trialPoints[h] += 3;
-      } else if (r < pDrawArr[m]) {
+      } else if (outcome === "D") {
         trialPoints[h] += 1;
         trialPoints[a] += 1;
       } else {

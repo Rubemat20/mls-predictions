@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { Conference, DashboardPayload, ModelKey } from "@/lib/types";
-import { MODEL_META, formatRelativeTime } from "@/lib/format";
+import { MODEL_DESCRIPTIONS, MODEL_META, formatRelativeTime } from "@/lib/format";
 import ConferenceTable from "./ConferenceTable";
 import ProbabilityChart from "./ProbabilityChart";
 import ModelCompareChart from "./ModelCompareChart";
+import TeamExplorer from "./TeamExplorer";
 
 const REFRESH_MS = 5 * 60 * 1000;
 
@@ -18,6 +19,7 @@ export default function Dashboard() {
   const [refreshing, setRefreshing] = useState(false);
   const [confFilter, setConfFilter] = useState<ConfFilter>("all");
   const [model, setModel] = useState<ModelKey>("montecarlo");
+  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
 
   const load = useCallback(async (force: boolean) => {
     if (force) setRefreshing(true);
@@ -36,6 +38,7 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional fetch-on-mount; interval refresh below is the ongoing sync, this just seeds it immediately instead of waiting REFRESH_MS
     load(false);
     const id = setInterval(() => load(false), REFRESH_MS);
     return () => clearInterval(id);
@@ -61,6 +64,10 @@ export default function Dashboard() {
 
   const confsToShow: Conference[] =
     confFilter === "all" ? ["East", "West"] : [confFilter];
+
+  const selectedTeam = selectedTeamId
+    ? data.teams.find((t) => t.team.id === selectedTeamId) ?? null
+    : null;
 
   return (
     <div style={{ maxWidth: 1280, margin: "0 auto", padding: "24px 20px 60px", width: "100%" }}>
@@ -121,10 +128,27 @@ export default function Dashboard() {
 
       <div
         style={{
+          fontSize: 12,
+          color: "var(--text-secondary)",
+          lineHeight: 1.5,
+          marginBottom: 20,
+          padding: "10px 14px",
+          borderRadius: 10,
+          background: "var(--page-plane)",
+          border: "1px solid var(--gridline)",
+          maxWidth: 900,
+        }}
+      >
+        <strong style={{ color: "var(--text-primary)" }}>{MODEL_META[model].label}.</strong>{" "}
+        {MODEL_DESCRIPTIONS[model]}
+      </div>
+
+      <div
+        style={{
           display: "grid",
           gridTemplateColumns: confsToShow.length === 2 ? "1fr 1fr" : "1fr",
           gap: 20,
-          marginBottom: 28,
+          marginBottom: 12,
         }}
       >
         {confsToShow.map((conf) => (
@@ -136,9 +160,28 @@ export default function Dashboard() {
             model={model}
             playoffSpots={data.playoffSpotsPerConference}
             directSpots={data.directSpotsPerConference}
+            selectedTeamId={selectedTeamId}
+            onSelectTeam={setSelectedTeamId}
           />
         ))}
       </div>
+
+      <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 0, marginBottom: 28 }}>
+        Click any team name to see exactly what results they need in their remaining games.
+      </p>
+
+      {selectedTeam && (
+        <TeamExplorer
+          team={selectedTeam}
+          allTeams={data.teams}
+          remainingMatches={data.remainingMatches}
+          matchProbabilities={data.matchProbabilities}
+          restFlags={data.restFlags}
+          playoffSpots={data.playoffSpotsPerConference}
+          model={model}
+          onClose={() => setSelectedTeamId(null)}
+        />
+      )}
 
       <div
         style={{
@@ -184,9 +227,17 @@ export default function Dashboard() {
         current-form power rating and each team&apos;s own home-win rate (shrunk toward
         the league average). <em>Elo Rating</em> replays every completed match with a
         home-field adjustment to build a rating per team, then runs the same simulation
-        using Elo-implied win probabilities. League average draw rate this season:{" "}
+        using Elo-implied win probabilities. <em>Home/Away Record</em> skips power ratings
+        and per-team splits entirely — one season per team is too small a sample — and
+        simulates using the league-wide home/draw/away rate for each match&apos;s rest
+        situation (whether either side is playing on 4 or fewer days&apos; rest). League
+        average draw rate this season:{" "}
         {Math.round(data.leagueDrawRate * 100)}%. Data source: ESPN. Playoff cutoff shown
         is today&apos;s actual standings position, not a projection.
+        <br />
+        <a href="/privacy" style={{ color: "var(--text-secondary)" }}>
+          Privacy Policy
+        </a>
       </footer>
     </div>
   );

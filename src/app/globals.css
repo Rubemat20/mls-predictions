@@ -7,7 +7,7 @@
   --surface-raised: #ffffff;
   --text-primary: #0b0b0b;
   --text-secondary: #52514e;
-  --text-muted: #898781;
+  --text-muted: #6e6c68; /* darkened from #898781: 3.49:1 on --surface-1 failed WCAG 1.4.3's 4.5:1 minimum for the 11-13px text using this token (table headers, chart axis ticks, footer) */
   --gridline: #e1e0d9;
   --baseline: #c3c2b7;
   --border-hairline: rgba(11, 11, 11, 0.1);
@@ -15,6 +15,7 @@
   --series-1: #2a78d6; /* blue - pace */
   --series-2: #eb6834; /* orange - monte carlo */
   --series-3: #1baf7a; /* aqua - elo */
+  --series-4: #8b5cd6; /* purple - home/away record */
 
   --status-good: #0ca30c;
   --status-warning: #fab219;
@@ -47,6 +48,7 @@
     --series-1: #3987e5;
     --series-2: #d95926;
     --series-3: #199e70;
+    --series-4: #a688e8;
 
     --playoff-in-bg: rgba(12, 163, 12, 0.14);
     --playoff-wildcard-bg: rgba(250, 178, 25, 0.14);
@@ -168,6 +170,7 @@ body {
   height: 6px;
   border-radius: 3px;
   background: var(--gridline);
+  border: 1px solid var(--text-muted);
   min-width: 70px;
 }
 
@@ -193,6 +196,7 @@ body {
   width: 84px;
   border-radius: 4px;
   background: var(--gridline);
+  border: 1px solid var(--text-muted);
   overflow: hidden;
 }
 
@@ -227,4 +231,34 @@ body {
 ::-webkit-scrollbar-thumb {
   background: var(--baseline);
   border-radius: 4px;
+}
+
+.team-row-clickable {
+  cursor: pointer;
+}
+
+.team-row-clickable:hover td {
+  background: var(--gridline);
+}
+
+.outcome-btn {
+  border-radius: 6px;
+  border: 1px solid var(--border-hairline);
+  padding: 4px 9px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--surface-raised);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.outcome-btn:hover {
+  background: var(--gridline);
+}
+
+.outcome-btn[data-active="true"] {
+  background: var(--text-primary);
+  color: var(--surface-1);
+  border-color: var(--text-primary);
 }
