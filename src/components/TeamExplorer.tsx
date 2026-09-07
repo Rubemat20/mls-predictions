@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
 import type { Match, ModelKey, SimModelKey, TeamStats, DashboardPayload } from "@/lib/types";
 import { runSimulation, type SimTeamMeta, type MatchOutcome } from "@/lib/simulate";
 import { formatPct, formatPoints, probColor, MODEL_META } from "@/lib/format";
 import { SHORT_REST_DAYS } from "@/lib/recordModel";
+import { TEAM_ACCENT_COLORS, readableTextColor } from "@/lib/teamColors";
 
 const EXPLORER_SIMULATIONS = 4000;
 const SHORT_REST_LABEL = `${SHORT_REST_DAYS} or fewer days' rest`;
@@ -146,8 +147,24 @@ export default function TeamExplorer({
 
   const delta = result ? result.playoffProbability - baseProb : 0;
 
+  const accent = TEAM_ACCENT_COLORS[team.team.abbrev];
+  const accentVars = accent
+    ? ({
+        "--team-accent": accent,
+        "--team-accent-ink": readableTextColor(accent),
+      } as CSSProperties)
+    : undefined;
+
   return (
-    <div className="card" style={{ padding: 16, marginBottom: 28 }}>
+    <div
+      className="card"
+      style={{
+        padding: 16,
+        marginBottom: 28,
+        borderTop: accent ? `3px solid ${accent}` : undefined,
+        ...accentVars,
+      }}
+    >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {team.team.logo && (

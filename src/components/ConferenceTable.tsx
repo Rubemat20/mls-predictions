@@ -52,10 +52,10 @@ export default function ConferenceTable({
             <tr>
               <th>#</th>
               <th>Team</th>
-              <th>GP</th>
-              <th>W-D-L</th>
+              <th className="hide-narrow">GP</th>
+              <th className="hide-narrow">W-D-L</th>
               <th>Pts</th>
-              <th>Home Win%</th>
+              <th className="hide-narrow">Home Win%</th>
               <th>Proj. Pts</th>
               <th>Playoff %</th>
             </tr>
@@ -101,23 +101,35 @@ export default function ConferenceTable({
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={t.team.logo} alt="" className="team-logo" />
                       )}
-                      <span style={{ textDecoration: onSelectTeam ? "underline" : undefined, textDecorationColor: "var(--border-hairline)", textUnderlineOffset: 3 }}>
+                      <span
+                        title={t.team.name}
+                        style={{
+                          textDecoration: onSelectTeam ? "underline" : undefined,
+                          textDecorationColor: "var(--border-hairline)",
+                          textUnderlineOffset: 3,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          maxWidth: "min(30vw, 160px)",
+                          minWidth: 0,
+                          display: "inline-block",
+                        }}
+                      >
                         {t.team.name}
                       </span>
                     </div>
                   </td>
-                  <td>{t.gamesPlayed}</td>
-                  <td>
+                  <td className="hide-narrow">{t.gamesPlayed}</td>
+                  <td className="hide-narrow">
                     {t.wins}-{t.draws}-{t.losses}
                   </td>
                   <td style={{ fontWeight: 600 }}>{t.points}</td>
-                  <td>{Math.round(t.homeWinPct * 100)}%</td>
+                  <td className="hide-narrow">{Math.round(t.homeWinPct * 100)}%</td>
                   <td>
                     <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                       <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
                         {formatPoints(mean)}
                       </span>
-                      <div className="range-track" style={{ minWidth: 90 }}>
+                      <div className="range-track">
                         <div
                           className="range-fill"
                           style={{ left: `${rangeLeft}%`, width: `${Math.max(rangeWidth, 1)}%` }}

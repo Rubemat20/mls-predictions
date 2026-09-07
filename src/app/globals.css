@@ -16,6 +16,8 @@
   --series-2: #eb6834; /* orange - monte carlo */
   --series-3: #1baf7a; /* aqua - elo */
   --series-4: #8b5cd6; /* purple - home/away record */
+  --brand-accent: var(--text-primary);
+  --brand-accent-ink: var(--surface-1);
 
   --status-good: #0ca30c;
   --status-warning: #fab219;
@@ -71,10 +73,36 @@
   --series-1: #3987e5;
   --series-2: #d95926;
   --series-3: #199e70;
+  --series-4: #a688e8;
 
   --playoff-in-bg: rgba(12, 163, 12, 0.14);
   --playoff-wildcard-bg: rgba(250, 178, 25, 0.14);
   --playoff-out-bg: transparent;
+}
+
+/*
+ * Palette previews, applied via [data-palette] on the dashboard's root div.
+ * Only the accent system changes (series colors + the "brand" accent used
+ * for active pills/buttons) — the neutral surfaces and text colors stay put
+ * since their contrast has already been tuned for WCAG. "default" is the
+ * palette above and needs no override block.
+ */
+[data-palette="navy"] {
+  --series-1: #1d3f72; /* crest navy */
+  --series-2: #c8283c; /* crimson */
+  --series-3: #e8ac1f; /* gold */
+  --series-4: #1f9e97; /* teal */
+  --brand-accent: #1d3f72;
+  --brand-accent-ink: #ffffff;
+}
+
+[data-palette="kit"] {
+  --series-1: #1b4b9c; /* old glory blue */
+  --series-2: #d0202f; /* kit red */
+  --series-3: #f2b134; /* gold */
+  --series-4: #5b6470; /* slate */
+  --brand-accent: #b3122a;
+  --brand-accent-ink: #ffffff;
 }
 
 * {
@@ -116,9 +144,9 @@ body {
 }
 
 .pill[data-active="true"] {
-  background: var(--text-primary);
-  color: var(--surface-1);
-  border-color: var(--text-primary);
+  background: var(--team-accent, var(--brand-accent));
+  color: var(--team-accent-ink, var(--brand-accent-ink));
+  border-color: var(--team-accent, var(--brand-accent));
 }
 
 .stats-table {
@@ -134,13 +162,13 @@ body {
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  padding: 8px 10px;
+  padding: 8px 7px;
   border-bottom: 1px solid var(--gridline);
   white-space: nowrap;
 }
 
 .stats-table td {
-  padding: 8px 10px;
+  padding: 8px 7px;
   border-bottom: 1px solid var(--gridline);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
@@ -171,7 +199,7 @@ body {
   border-radius: 3px;
   background: var(--gridline);
   border: 1px solid var(--text-muted);
-  min-width: 70px;
+  min-width: 56px;
 }
 
 .range-fill {
@@ -193,7 +221,7 @@ body {
 .prob-track {
   position: relative;
   height: 8px;
-  width: 84px;
+  width: 58px;
   border-radius: 4px;
   background: var(--gridline);
   border: 1px solid var(--text-muted);
@@ -258,7 +286,51 @@ body {
 }
 
 .outcome-btn[data-active="true"] {
-  background: var(--text-primary);
-  color: var(--surface-1);
-  border-color: var(--text-primary);
+  background: var(--team-accent, var(--brand-accent));
+  color: var(--team-accent-ink, var(--brand-accent-ink));
+  border-color: var(--team-accent, var(--brand-accent));
+}
+
+/*
+ * Two-up layout for the conference tables / charts. minmax(0, 1fr) instead
+ * of a bare 1fr is the actual fix for the "too wide" complaint: a bare 1fr
+ * track won't shrink below its content's min-content width, so a dense
+ * table inside it was blowing the whole grid (and page) out past the
+ * viewport instead of scrolling internally. Below 880px it collapses to a
+ * single column outright — two dense tables side by side stops being
+ * readable well before that.
+ */
+.dash-grid {
+  display: grid;
+  gap: 20px;
+}
+
+.dash-grid.dash-grid-2 {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+@media (max-width: 880px) {
+  .dash-grid.dash-grid-2 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .stats-table th,
+  .stats-table td {
+    padding: 6px 5px;
+    font-size: 12px;
+  }
+
+  .stats-table .hide-narrow {
+    display: none;
+  }
+
+  .range-track {
+    min-width: 44px !important;
+  }
+
+  .prob-track {
+    width: 46px;
+  }
 }
