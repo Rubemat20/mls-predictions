@@ -11,19 +11,6 @@ import TeamExplorer from "./TeamExplorer";
 const REFRESH_MS = 5 * 60 * 1000;
 
 type ConfFilter = "all" | Conference;
-type Palette = "default" | "navy" | "kit";
-
-const PALETTE_META: Record<Palette, { label: string; blurb: string }> = {
-  default: { label: "Default", blurb: "The original neutral palette." },
-  navy: {
-    label: "Navy Crest",
-    blurb: "Inspired by the league's navy crest, with crimson, gold, and teal accents.",
-  },
-  kit: {
-    label: "Kit Colors",
-    blurb: "Red, white & blue — inspired by the league's original soccer-ball crest.",
-  },
-};
 
 export default function Dashboard() {
   const [data, setData] = useState<DashboardPayload | null>(null);
@@ -33,7 +20,6 @@ export default function Dashboard() {
   const [confFilter, setConfFilter] = useState<ConfFilter>("all");
   const [model, setModel] = useState<ModelKey>("montecarlo");
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
-  const [palette, setPalette] = useState<Palette>("default");
 
   const load = useCallback(async (force: boolean) => {
     if (force) setRefreshing(true);
@@ -84,10 +70,7 @@ export default function Dashboard() {
     : null;
 
   return (
-    <div
-      data-palette={palette}
-      style={{ maxWidth: 1280, margin: "0 auto", padding: "24px 20px 60px", width: "100%" }}
-    >
+    <div style={{ maxWidth: 1280, margin: "0 auto", padding: "24px 20px 60px", width: "100%" }}>
       <header style={{ marginBottom: 20 }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
           <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>MLS Playoff Chances</h1>
@@ -141,29 +124,6 @@ export default function Dashboard() {
             {refreshing ? "Refreshing…" : "Refresh now"}
           </button>
         </div>
-      </div>
-
-      <div
-        style={{
-          display: "flex",
-          gap: 8,
-          alignItems: "center",
-          flexWrap: "wrap",
-          marginBottom: 16,
-        }}
-      >
-        <span style={{ fontSize: 12, color: "var(--text-muted)" }}>Palette preview:</span>
-        <FilterGroup
-          options={(Object.keys(PALETTE_META) as Palette[]).map((k) => ({
-            value: k,
-            label: PALETTE_META[k].label,
-          }))}
-          value={palette}
-          onChange={(v) => setPalette(v as Palette)}
-        />
-        <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
-          {PALETTE_META[palette].blurb}
-        </span>
       </div>
 
       <div

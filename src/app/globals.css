@@ -80,31 +80,6 @@
   --playoff-out-bg: transparent;
 }
 
-/*
- * Palette previews, applied via [data-palette] on the dashboard's root div.
- * Only the accent system changes (series colors + the "brand" accent used
- * for active pills/buttons) — the neutral surfaces and text colors stay put
- * since their contrast has already been tuned for WCAG. "default" is the
- * palette above and needs no override block.
- */
-[data-palette="navy"] {
-  --series-1: #1d3f72; /* crest navy */
-  --series-2: #c8283c; /* crimson */
-  --series-3: #e8ac1f; /* gold */
-  --series-4: #1f9e97; /* teal */
-  --brand-accent: #1d3f72;
-  --brand-accent-ink: #ffffff;
-}
-
-[data-palette="kit"] {
-  --series-1: #1b4b9c; /* old glory blue */
-  --series-2: #d0202f; /* kit red */
-  --series-3: #f2b134; /* gold */
-  --series-4: #5b6470; /* slate */
-  --brand-accent: #b3122a;
-  --brand-accent-ink: #ffffff;
-}
-
 * {
   box-sizing: border-box;
 }
