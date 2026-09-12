@@ -16,6 +16,7 @@
   --series-2: #eb6834; /* orange - monte carlo */
   --series-3: #1baf7a; /* aqua - elo */
   --series-4: #8b5cd6; /* purple - home/away record */
+  --series-5: #c2554e; /* brick red - historical cutoff */
   --brand-accent: var(--text-primary);
   --brand-accent-ink: var(--surface-1);
 
@@ -51,6 +52,7 @@
     --series-2: #d95926;
     --series-3: #199e70;
     --series-4: #a688e8;
+    --series-5: #e07971;
 
     --playoff-in-bg: rgba(12, 163, 12, 0.14);
     --playoff-wildcard-bg: rgba(250, 178, 25, 0.14);
@@ -74,6 +76,7 @@
   --series-2: #d95926;
   --series-3: #199e70;
   --series-4: #a688e8;
+  --series-5: #e07971;
 
   --playoff-in-bg: rgba(12, 163, 12, 0.14);
   --playoff-wildcard-bg: rgba(250, 178, 25, 0.14);

@@ -5,6 +5,7 @@ export const MODEL_META: Record<ModelKey, { label: string; short: string; colorV
   montecarlo: { label: "Monte Carlo", short: "Sim", colorVar: "--series-2" },
   elo: { label: "Elo Rating", short: "Elo", colorVar: "--series-3" },
   record: { label: "Home/Away Record", short: "Record", colorVar: "--series-4" },
+  historical: { label: "Historical Cutoff", short: "History", colorVar: "--series-5" },
 };
 
 export const MODEL_DESCRIPTIONS: Record<ModelKey, string> = {
@@ -16,6 +17,8 @@ export const MODEL_DESCRIPTIONS: Record<ModelKey, string> = {
     "Same simulation engine as Monte Carlo, but the input rating comes from replaying every completed match of the season through an Elo system (with a margin-of-victory bonus and a flat home-field edge) instead of a current-form snapshot. Elo rewards beating strong opponents specifically, so it can diverge from Monte Carlo when a team's schedule strength has been unusually easy or hard.",
   record:
     "No power ratings and no per-team splits — one season of any single team's home/away record is too small a sample to trust. Instead every remaining match uses the league-wide home/draw/away rate for its rest situation: whether the home team, the away team, both, or neither is playing again on 4 or fewer days' rest (each of those four situations is calibrated from this season's actual results, shrunk toward the overall league split when there aren't many games to go on). The same 8,000-trial simulation then tallies playoff odds from those league-average matchups, so teams only separate here by their current points and the shape (and rest pattern) of their remaining schedule.",
+  historical:
+    "No simulation, no rating — just history. Takes each team's current points-per-game pace and checks it against the actual playoff cutoff (in points-per-game, to stay fair across shortened or format-changed seasons) in each of the last 7 non-anomalous MLS seasons for that specific conference, weighting recent seasons more heavily since the playoff field size has changed repeatedly (6 spots in 2018, 7 in 2019, 8 in 2021, back to 7 in 2022, 9 from 2023 on). The probability is just the recency-weighted share of those seasons where this pace would have cleared that year's cutoff — see the reference table below for the underlying numbers.",
 };
 
 export function formatPct(value: number): string {
