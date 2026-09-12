@@ -24,6 +24,7 @@ interface Row {
   montecarlo: number;
   elo: number;
   record: number;
+  historical: number;
 }
 
 export default function ModelCompareChart({ teams, models }: Props) {
@@ -31,6 +32,7 @@ export default function ModelCompareChart({ teams, models }: Props) {
   const mcById = new Map(models.montecarlo.map((m) => [m.teamId, m]));
   const eloById = new Map(models.elo.map((m) => [m.teamId, m]));
   const recordById = new Map(models.record.map((m) => [m.teamId, m]));
+  const historicalById = new Map(models.historical.map((m) => [m.teamId, m]));
 
   const rows: Row[] = [...teams]
     .sort((a, b) => a.currentRank - b.currentRank)
@@ -40,6 +42,7 @@ export default function ModelCompareChart({ teams, models }: Props) {
       montecarlo: mcById.get(t.team.id)?.playoffProbability ?? 0,
       elo: eloById.get(t.team.id)?.playoffProbability ?? 0,
       record: recordById.get(t.team.id)?.playoffProbability ?? 0,
+      historical: historicalById.get(t.team.id)?.playoffProbability ?? 0,
     }));
 
   return (
@@ -48,9 +51,9 @@ export default function ModelCompareChart({ teams, models }: Props) {
         Model comparison — playoff probability
       </div>
       <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 12 }}>
-        How the four models agree (or disagree) on each team&apos;s odds.
+        How the five models agree (or disagree) on each team&apos;s odds.
       </div>
-      <ResponsiveContainer width="100%" height={Math.max(rows.length * 36, 260)}>
+      <ResponsiveContainer width="100%" height={Math.max(rows.length * 44, 280)}>
         <BarChart data={rows} layout="vertical" margin={{ left: 8, right: 16, top: 4, bottom: 4 }}>
           <CartesianGrid horizontal={false} stroke="var(--gridline)" />
           <XAxis
@@ -99,6 +102,7 @@ export default function ModelCompareChart({ teams, models }: Props) {
           <Bar dataKey="montecarlo" fill="var(--series-2)" radius={[0, 4, 4, 0]} maxBarSize={6} />
           <Bar dataKey="elo" fill="var(--series-3)" radius={[0, 4, 4, 0]} maxBarSize={6} />
           <Bar dataKey="record" fill="var(--series-4)" radius={[0, 4, 4, 0]} maxBarSize={6} />
+          <Bar dataKey="historical" fill="var(--series-5)" radius={[0, 4, 4, 0]} maxBarSize={6} />
         </BarChart>
       </ResponsiveContainer>
     </div>

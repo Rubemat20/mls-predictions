@@ -7,10 +7,13 @@ import ConferenceTable from "./ConferenceTable";
 import ProbabilityChart from "./ProbabilityChart";
 import ModelCompareChart from "./ModelCompareChart";
 import TeamExplorer from "./TeamExplorer";
+import HistoricalCutoffTable from "./HistoricalCutoffTable";
+import BenchmarkView from "./BenchmarkView";
 
 const REFRESH_MS = 5 * 60 * 1000;
 
 type ConfFilter = "all" | Conference;
+type View = "dashboard" | "benchmark";
 
 export default function Dashboard() {
   const [data, setData] = useState<DashboardPayload | null>(null);
@@ -20,6 +23,8 @@ export default function Dashboard() {
   const [confFilter, setConfFilter] = useState<ConfFilter>("all");
   const [model, setModel] = useState<ModelKey>("montecarlo");
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
+  const [compareHistorical, setCompareHistorical] = useState(false);
+  const [view, setView] = useState<View>("dashboard");
 
   const load = useCallback(async (force: boolean) => {
     if (force) setRefreshing(true);
@@ -86,6 +91,21 @@ export default function Dashboard() {
         </p>
       </header>
 
+      <div style={{ marginBottom: 20 }}>
+        <FilterGroup
+          options={[
+            { value: "dashboard", label: "Dashboard" },
+            { value: "benchmark", label: "vs. PlayoffStatus" },
+          ]}
+          value={view}
+          onChange={(v) => setView(v as View)}
+        />
+      </div>
+
+      {view === "benchmark" ? (
+        <BenchmarkView data={data} model={model} />
+      ) : (
+        <>
       <div
         style={{
           display: "flex",
@@ -125,6 +145,8 @@ export default function Dashboard() {
           </button>
         </div>
       </div>
+
+      {model === "historical" && <HistoricalCutoffTable />}
 
       <div
         style={{
@@ -179,6 +201,18 @@ export default function Dashboard() {
         />
       )}
 
+      {model !== "historical" && (
+        <div style={{ marginBottom: 12 }}>
+          <button
+            className="pill"
+            data-active={compareHistorical}
+            onClick={() => setCompareHistorical((v) => !v)}
+          >
+            {compareHistorical ? "✓ " : ""}Compare vs. Historical Cutoff
+          </button>
+        </div>
+      )}
+
       <div
         className={`dash-grid${confsToShow.length === 2 ? " dash-grid-2" : ""}`}
         style={{ marginBottom: 20 }}
@@ -190,6 +224,12 @@ export default function Dashboard() {
             modelResults={new Map(data.models[model].map((m) => [m.teamId, m]))}
             model={model}
             playoffSpots={data.playoffSpotsPerConference}
+            compareResults={
+              compareHistorical && model !== "historical"
+                ? new Map(data.models.historical.map((m) => [m.teamId, m]))
+                : undefined
+            }
+            compareModel={compareHistorical && model !== "historical" ? "historical" : undefined}
           />
         ))}
       </div>
@@ -218,8 +258,10 @@ export default function Dashboard() {
         using Elo-implied win probabilities. <em>Home/Away Record</em> skips power ratings
         and per-team splits entirely — one season per team is too small a sample — and
         simulates using the league-wide home/draw/away rate for each match&apos;s rest
-        situation (whether either side is playing on 4 or fewer days&apos; rest). League
-        average draw rate this season:{" "}
+        situation (whether either side is playing on 4 or fewer days&apos; rest).{" "}
+        <em>Historical Cutoff</em> looks up each team&apos;s current points-per-game against
+        the actual playoff cutoff in that conference across the last 7 non-anomalous MLS
+        seasons, weighted toward recent seasons. League average draw rate this season:{" "}
         {Math.round(data.leagueDrawRate * 100)}%. Data source: ESPN. Playoff cutoff shown
         is today&apos;s actual standings position, not a projection.
         <br />
@@ -227,6 +269,8 @@ export default function Dashboard() {
           Privacy Policy
         </a>
       </footer>
+        </>
+      )}
     </div>
   );
 }

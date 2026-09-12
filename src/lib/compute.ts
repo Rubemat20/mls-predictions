@@ -9,6 +9,7 @@ import {
 } from "./simulate";
 import { calibrateRestSplits, computeRestFlags, type SplitRates } from "./recordModel";
 import { projectPointsPace, type PaceTeamInput } from "./pace";
+import { historicalCutoffProbability } from "./historicalCutoffs";
 import type {
   Conference,
   DashboardPayload,
@@ -27,6 +28,7 @@ const DEFAULT_LEAGUE_DRAW_RATE = 0.24;
 const DEFAULT_PER_GAME_STD = 1.2;
 const HOME_ADVANTAGE_PRIOR_GAMES = 6;
 const BASE_HOME_BOOST = 50;
+const REFERENCE_SEASON_GAMES = 34; // typical modern MLS regular-season length, used only to express a ppg pace as a full-season point total
 
 function emptySplit(): TeamRecordSplit {
   return { played: 0, wins: 0, draws: 0, losses: 0, points: 0, ppg: 0 };
@@ -255,6 +257,24 @@ export async function buildDashboardPayload(): Promise<DashboardPayload> {
     SIMULATIONS
   );
 
+  // --- Model 5: historical cutoff likelihood ---
+  // No simulation at all: takes each team's current points-per-game pace and
+  // checks it against the last 7 non-anomalous seasons' actual playoff
+  // cutoff ppg for that conference (recency-weighted). Pure lookup against
+  // real outcomes, not a fitted model, by design.
+  const historicalResults = new Map<
+    string,
+    { playoffProbability: number; projectedPoints: number }
+  >();
+  for (const t of teamStats) {
+    const currentPpg = t.gamesPlayed > 0 ? t.points / t.gamesPlayed : 0;
+    const { playoffProbability } = historicalCutoffProbability(currentPpg, t.team.conference);
+    historicalResults.set(t.team.id, {
+      playoffProbability,
+      projectedPoints: currentPpg * REFERENCE_SEASON_GAMES,
+    });
+  }
+
   const models: Record<ModelKey, TeamModelResult[]> = {
     pace: teamIds.map((id) => ({
       teamId: id,
@@ -285,6 +305,13 @@ export async function buildDashboardPayload(): Promise<DashboardPayload> {
       projectedPoints: recordResults[id].projectedPoints,
       projectedPointsLow: recordResults[id].p10,
       projectedPointsHigh: recordResults[id].p90,
+    })),
+    historical: teamIds.map((id) => ({
+      teamId: id,
+      playoffProbability: historicalResults.get(id)!.playoffProbability,
+      projectedPoints: historicalResults.get(id)!.projectedPoints,
+      projectedPointsLow: historicalResults.get(id)!.projectedPoints,
+      projectedPointsHigh: historicalResults.get(id)!.projectedPoints,
     })),
   };
 

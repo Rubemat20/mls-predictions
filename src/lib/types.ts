@@ -48,7 +48,7 @@ export interface TeamStats {
   remainingGames: number;
 }
 
-export type ModelKey = "pace" | "montecarlo" | "elo" | "record";
+export type ModelKey = "pace" | "montecarlo" | "elo" | "record" | "historical";
 
 /** Models whose per-match outcome probabilities are exposed for the team explorer. */
 export type SimModelKey = "montecarlo" | "elo" | "record";
@@ -88,4 +88,30 @@ export interface DashboardPayload {
   matchProbabilities: Record<SimModelKey, Record<string, MatchOutcomeProbability>>;
   /** Which side (if either) is playing on short rest, keyed by match id, for every remaining match. */
   restFlags: Record<string, MatchRestFlags>;
+}
+
+export interface PlayoffStatusTeamRow {
+  /** Our team abbreviation (e.g. "SEA") — PlayoffStatus doesn't expose ESPN's team ids, so this is the join key. */
+  teamAbbrev: string;
+  teamName: string;
+  conference: Conference;
+  wins: number;
+  losses: number;
+  ties: number;
+  gamesPlayed: number;
+  points: number;
+  /** Probability of finishing in each seed, index 0 = seed 1, percentages 0-100. */
+  seedProbabilities: number[];
+  /** Probability of missing the playoffs entirely, 0-100. */
+  noPlayoffsProbability: number;
+  /** Derived: 100 - noPlayoffsProbability. */
+  makePlayoffsProbability: number;
+}
+
+export interface BenchmarkPayload {
+  fetchedAt: string;
+  weekLabel: string | null;
+  teams: PlayoffStatusTeamRow[];
+  /** Team abbreviations found on PlayoffStatus that couldn't be matched to a known team. */
+  unmatched: string[];
 }
