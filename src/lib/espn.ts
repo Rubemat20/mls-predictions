@@ -3,8 +3,39 @@ import type { Conference, Match, Team } from "./types";
 const STANDINGS_URL =
   "https://site.api.espn.com/apis/v2/sports/soccer/usa.1/standings";
 
-function scoreboardUrl(year: number) {
-  return `https://site.api.espn.com/apis/site/v2/sports/soccer/usa.1/scoreboard?dates=${year}0101-${year}1231&limit=1000`;
+function scoreboardUrl(date?: string) {
+  const base = "https://site.api.espn.com/apis/site/v2/sports/soccer/usa.1/scoreboard";
+  return date ? `${base}?dates=${date}` : base;
+}
+
+// ESPN's scoreboard endpoint used to accept a `dates=YYYYMMDD-YYYYMMDD` range,
+// but that now always 400s ("Failed to get events endpoint."), even for a
+// single-day range. Only a bare `dates=YYYYMMDD` still works, so instead we
+// pull the season's full list of match dates from a scoreboard response's
+// `leagues[0].calendar` field and fetch each date individually.
+async function fetchScoreboardCalendarDates(year: number): Promise<string[]> {
+  const res = await fetch(scoreboardUrl(`${year}0101`), { cache: "no-store" });
+  if (!res.ok) throw new Error(`ESPN scoreboard calendar request failed: ${res.status}`);
+  const data = await res.json();
+  const calendar: string[] = data.leagues?.[0]?.calendar ?? [];
+  return calendar.map((iso) => iso.slice(0, 10).replace(/-/g, ""));
+}
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let next = 0;
+  async function worker() {
+    while (next < items.length) {
+      const i = next++;
+      results[i] = await fn(items[i]);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return results;
 }
 
 interface StandingsResult {
@@ -58,12 +89,17 @@ export async function fetchFullSchedule(
   season: number,
   validTeamIds: Set<string>
 ): Promise<Match[]> {
-  const res = await fetch(scoreboardUrl(season), { cache: "no-store" });
-  if (!res.ok) throw new Error(`ESPN scoreboard request failed: ${res.status}`);
-  const data = await res.json();
+  const dates = await fetchScoreboardCalendarDates(season);
 
-  const matches: Match[] = [];
-  for (const event of data.events ?? []) {
+  const perDateEvents = await mapWithConcurrency(dates, 12, async (date) => {
+    const res = await fetch(scoreboardUrl(date), { cache: "no-store" });
+    if (!res.ok) throw new Error(`ESPN scoreboard request failed: ${res.status}`);
+    const data = await res.json();
+    return data.events ?? [];
+  });
+
+  const matchesById = new Map<string, Match>();
+  for (const event of perDateEvents.flat()) {
     const competition = event.competitions?.[0];
     if (!competition) continue;
     const home = competition.competitors.find(
@@ -82,7 +118,7 @@ export async function fetchFullSchedule(
     if (statusType?.completed) status = "FINAL";
     else if (statusType?.state === "in") status = "LIVE";
 
-    matches.push({
+    matchesById.set(String(event.id), {
       id: String(event.id),
       date: event.date,
       homeId,
@@ -93,6 +129,7 @@ export async function fetchFullSchedule(
     });
   }
 
+  const matches = Array.from(matchesById.values());
   matches.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   return matches;
 }
